@@ -1,0 +1,40 @@
+import pandas as pd
+
+def lat_long_find(detection_df, deployment_log_df):
+    """
+    This function will locate the appropriate latitude and longitude of a station wthin the detection data based on
+    the station name, time of detection, and in- and out-datetimes of receiver. 
+    
+    INPUTS:
+    detection_df: Raw detection dataframe 
+    deployment_log_df: Raw JWS Receiver Deployment log
+    
+    OUTPUTS:
+    filtered_df: New, merged dataframe with appropriate latitude/longitude columns
+    
+    WARNING:
+    Will produce warnings. Can ignore?
+    """
+    df = detection_df.drop(columns=['Latitude', 'Longitude'])
+    df.rename(columns={'Station Name':'Station'}, inplace=True)
+    log = deployment_log_df[deployment_log_df['Retrieval_status']=='success']
+    # Convert 'Date and Time (UTC)' column to datetime dtype
+    df['Date and Time (UTC)'] = pd.to_datetime(df['Date and Time (UTC)'])
+    log['In_PSTPDT'] = pd.to_datetime(log['In_PSTPDT'])
+    log['Out_PSTPDT'] = pd.to_datetime(log['Out_PSTPDT'])
+
+    # Merge dataframes on 'Station' column
+    merged_df = df.merge(log[['Station', 'Lat', 'Lng', 'In_PSTPDT', 'Out_PSTPDT']], on='Station')
+
+    # Filter rows based on conditions
+    filtered_df = merged_df[(merged_df['Date and Time (UTC)'] > merged_df['In_PSTPDT']) & 
+                            (merged_df['Date and Time (UTC)'] < merged_df['Out_PSTPDT'])].copy()
+
+    # Create 'Latitude' and 'Longitude' columns
+    filtered_df.loc[:, 'Latitude'] = filtered_df['Lat']
+    filtered_df.loc[:, 'Longitude'] = filtered_df['Lng']
+
+    # Drop unnecessary columns
+    filtered_df.drop(['Lat', 'Lng', 'In_PSTPDT', 'Out_PSTPDT'], axis=1, inplace=True)
+    
+    return(filtered_df)
